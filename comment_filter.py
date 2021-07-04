@@ -1,21 +1,44 @@
 import re
+from abc import ABC, abstractmethod
+import os
+import pickle
 
 
-class Model:
+class Model(ABC):
     def __init__(self, pos_dict, neg_dict):
         self.pos_uniGram_dict = pos_dict[0]
-        self.pos_biGram_dict = pos_dict[1]
         self.neg_uniGram_dict = neg_dict[0]
+
+    @abstractmethod
+    def estimate(self, line):
+        pass
+
+
+class BiGramModel(Model):
+    def __init__(self, pos_dict, neg_dict):
+        super().__init__(pos_dict, neg_dict)
+        self.pos_biGram_dict = pos_dict[1]
         self.neg_biGram_dict = neg_dict[1]
 
     def estimate(self, line):
-        pos_prob = 0.5 * probability(self.pos_uniGram_dict, self.pos_biGram_dict, line)
-        neg_prob = 0.5 * probability(self.neg_uniGram_dict, self.neg_biGram_dict, line)
+        pos_prob = 0.5 * biGram_probability(self.pos_uniGram_dict, self.pos_biGram_dict, line)
+        neg_prob = 0.5 * biGram_probability(self.neg_uniGram_dict, self.neg_biGram_dict, line)
 
         return pos_prob, neg_prob
 
 
-def probability(uni_dictionary, bi_dictionary, line):
+class UniGramModel(Model):
+    def __init__(self, pos_dict, neg_dict):
+        super().__init__(pos_dict, neg_dict)
+
+    def estimate(self, line):
+        pos_prob = 0.5 * uniGram_probability(self.pos_uniGram_dict, line)
+        neg_prob = 0.5 * uniGram_probability(self.neg_uniGram_dict, line)
+
+        return pos_prob, neg_prob
+
+
+def biGram_probability(uni_dictionary, bi_dictionary, line):
     l1 = 0.95
     l2 = 0.045
     l3 = 0.005
@@ -40,6 +63,24 @@ def probability(uni_dictionary, bi_dictionary, line):
     return prob
 
 
+def uniGram_probability(uni_dictionary, line):
+    l1 = 0.95
+    l2 = 0.05
+    words = line.split()
+
+    prob = 1
+    for i in range(len(words)):
+        try:
+            uniGram_prob = uni_dictionary[line[i]] / len(uni_dictionary)
+        except KeyError:
+            uniGram_prob = 0
+
+        interpolation_prob = l1 * uniGram_prob + l2 * 0.5
+        prob *= interpolation_prob
+
+    return prob
+
+
 def read_dataSet(address):
     try:
         with open(address, 'rt') as file:
@@ -47,6 +88,24 @@ def read_dataSet(address):
             return data
     except IOError:
         print('some thing went wrong in loading DataSet')
+
+
+def save_model(model, name=input('model_name : ')):
+    try:
+        os.mkdir('saved_models')
+        with open('saved_models/model_' + name, 'wb') as file:
+            pickle.dump(model, file)
+    except IOError:
+        print('some thing went wrong in saving model')
+
+
+def load_model(name=input('model_name')):
+    try:
+        with open('saved_models/' + name, 'rb') as file:
+            model = pickle.load(file)
+            return model
+    except IOError:
+        print('some thing went wrong in loading model')
 
 
 def preprocess():
@@ -68,7 +127,9 @@ def preprocess():
     return (pos_train_set, pos_test_set), (neg_train_set, neg_test_set)
 
 
-def train(pos_set, neg_set):
+def train(pos_set, neg_set, model_type='biGram'):
+    print('start training...')
+
     def create_dict(lines):
         uniGram_dictionary = dict()
         biGram_dictionary = dict()
@@ -81,7 +142,7 @@ def train(pos_set, neg_set):
                 else:
                     uniGram_dictionary[words[i]] += 1
 
-                if i > 0:
+                if i > 0 and model_type == 'biGram':
                     if (words[i - 1], words[i]) not in biGram_dictionary:
                         biGram_dictionary[(words[i - 1], words[i])] = 1
                     else:
@@ -89,7 +150,16 @@ def train(pos_set, neg_set):
 
         return uniGram_dictionary, biGram_dictionary
 
-    return Model(create_dict(pos_set), create_dict(neg_set))
+    if model_type == 'uniGram':
+        model = UniGramModel(create_dict(pos_set), create_dict(neg_set))
+    else:
+        model = BiGramModel(create_dict(pos_set), create_dict(neg_set))
+
+    inp = input('train finished, do you want to save your model ?[y/n]')
+    if inp == 'y' or inp == 'Y':
+        save_model(model=model)
+
+    return model
 
 
 def evaluate(model, pos_test_set, neg_test_set):
@@ -129,11 +199,17 @@ def run(model):
 
 
 def main():
-    (pos_train_set, pos_test_set), (neg_train_set, neg_test_set) = preprocess()
-    my_model = train(pos_train_set, neg_train_set)
-    # run(my_model)
-    recall, precision, accuracy, F1_score = evaluate(my_model, pos_test_set, neg_test_set)
-    print(recall, precision, accuracy, F1_score)
+    inp = input('do you want to use your previous model?[y/n]')
+    if inp == 'Y' or 'y':
+        my_model = load_model()
+    else:
+        (pos_train_set, pos_test_set), (neg_train_set, neg_test_set) = preprocess()
+        my_model = train(pos_train_set, neg_train_set)
+        print('recall = {} precision = {} accuracy = {} F1_score = {}'.
+              format(*evaluate(my_model, pos_test_set, neg_test_set)))
+        print('---------------------------------------------------------')
+
+    run(my_model)
 
 
 if __name__ == '__main__':
