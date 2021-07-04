@@ -43,6 +43,8 @@ def biGram_probability(uni_dictionary, bi_dictionary, line):
     l2 = 0.045
     l3 = 0.005
     words = line.split()
+    if len(words) == 0:
+        return 0
     try:
         prob = uni_dictionary[line[0]] / len(uni_dictionary)
     except KeyError:
@@ -90,22 +92,25 @@ def read_dataSet(address):
         print('some thing went wrong in loading DataSet')
 
 
-def save_model(model, name=input('model_name : ')):
+def save_model(model, name):
     try:
-        os.mkdir('saved_models')
-        with open('saved_models/model_' + name, 'wb') as file:
+        dirs = os.listdir()
+        if 'saved_models' not in dirs:
+            os.mkdir('saved_models')
+        with open('saved_models/' + name + '.model', 'wb') as file:
             pickle.dump(model, file)
     except IOError:
         print('some thing went wrong in saving model')
 
 
-def load_model(name=input('model_name')):
+def load_model(name):
     try:
-        with open('saved_models/' + name, 'rb') as file:
+        with open('saved_models/' + name + '.model', 'rb') as file:
             model = pickle.load(file)
             return model
     except IOError:
         print('some thing went wrong in loading model')
+        exit(-1)
 
 
 def preprocess():
@@ -155,9 +160,10 @@ def train(pos_set, neg_set, model_type='biGram'):
     else:
         model = BiGramModel(create_dict(pos_set), create_dict(neg_set))
 
-    inp = input('train finished, do you want to save your model ?[y/n]')
+    inp = input('train finished, do you want to save your model ?[y/n]\n')
     if inp == 'y' or inp == 'Y':
-        save_model(model=model)
+        model_name = input('model name: ')
+        save_model(model=model, name=model_name)
 
     return model
 
@@ -199,11 +205,13 @@ def run(model):
 
 
 def main():
-    inp = input('do you want to use your previous model?[y/n]')
-    if inp == 'Y' or 'y':
-        my_model = load_model()
+    inp = input('do you want to use your previous model?[y/n]\n')
+    if inp == 'Y' or inp == 'y':
+        model_name = input('model name: ')
+        my_model = load_model(model_name)
     else:
         (pos_train_set, pos_test_set), (neg_train_set, neg_test_set) = preprocess()
+        # my_model = train(pos_train_set, neg_train_set, model_type="uniGram")
         my_model = train(pos_train_set, neg_train_set)
         print('recall = {} precision = {} accuracy = {} F1_score = {}'.
               format(*evaluate(my_model, pos_test_set, neg_test_set)))
