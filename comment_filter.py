@@ -39,16 +39,16 @@ class UniGramModel(Model):
 
 
 def biGram_probability(uni_dictionary, bi_dictionary, line):
-    l1 = 0.95
-    l2 = 0.045
-    l3 = 0.005
+    l1 = 0.98
+    l2 = 0.01999
+    l3 = 0.00001
     words = line.split()
     if len(words) == 0:
         return 0
     try:
         prob = uni_dictionary[line[0]] / len(uni_dictionary)
     except KeyError:
-        prob = l3 * 0.5
+        prob = l3 * 0.15
 
     for i in range(1, len(words)):
         try:
@@ -59,15 +59,15 @@ def biGram_probability(uni_dictionary, bi_dictionary, line):
             uniGram_prob = (uni_dictionary[words[i]] / len(uni_dictionary))
         except KeyError:
             uniGram_prob = 0
-        interpolation_prob = l1 * biGram_prob + l2 * uniGram_prob + l3 * 0.5
+        interpolation_prob = l1 * biGram_prob + l2 * uniGram_prob + l3 * 0.15
         prob *= interpolation_prob
 
     return prob
 
 
 def uniGram_probability(uni_dictionary, line):
-    l1 = 0.95
-    l2 = 0.05
+    l1 = 0.99999
+    l2 = 0.00001
     words = line.split()
 
     prob = 1
@@ -77,7 +77,7 @@ def uniGram_probability(uni_dictionary, line):
         except KeyError:
             uniGram_prob = 0
 
-        interpolation_prob = l1 * uniGram_prob + l2 * 0.5
+        interpolation_prob = l1 * uniGram_prob + l2 * 0.01
         prob *= interpolation_prob
 
     return prob
@@ -153,6 +153,21 @@ def train(pos_set, neg_set, model_type='biGram'):
                     else:
                         biGram_dictionary[(words[i - 1], words[i])] += 1
 
+
+        if model_type == 'biGram':
+            auxiliary = []
+
+            for word in uniGram_dictionary.keys():
+                if uniGram_dictionary[word] < 2:
+                    auxiliary.append(word)
+
+            for _ in range(10):
+                word = max(uniGram_dictionary, key=uniGram_dictionary.get)
+                uniGram_dictionary.pop(word)
+
+            for word in auxiliary:
+                uniGram_dictionary.pop(word)
+
         return uniGram_dictionary, biGram_dictionary
 
     if model_type == 'uniGram':
@@ -172,14 +187,14 @@ def evaluate(model, pos_test_set, neg_test_set):
     TP = TN = FP = FN = 0
     for line in pos_test_set:
         pos_prob, neg_prob = model.estimate(line)
-        if pos_prob > neg_prob:
+        if pos_prob >= neg_prob:
             TP += 1
         else:
             FN += 1
 
     for line in neg_test_set:
         pos_prob, neg_prob = model.estimate(line)
-        if pos_prob > neg_prob:
+        if pos_prob >= neg_prob:
             FP += 1
         else:
             TN += 1
@@ -198,7 +213,7 @@ def run(model):
             return
         line = re.sub(r'[^A-Za-z0-9]+', ' ', line)
         pos_prob, neg_prob = model.estimate(line)
-        if pos_prob > neg_prob:
+        if pos_prob >= neg_prob:
             print("not filter this")
         else:
             print("filter this")
