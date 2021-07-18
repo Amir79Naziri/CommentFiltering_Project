@@ -29,12 +29,13 @@ class BiGramModel(Model):
 
 
 class UniGramModel(Model):
-    def __init__(self, pos_dict, neg_dict):
+    def __init__(self, pos_dict, neg_dict, smoothing):
         super().__init__(pos_dict, neg_dict)
+        self.smoothing = smoothing
 
     def estimate(self, line):
-        pos_prob = 0.5 * uniGram_probability(self.pos_uniGram_dict, line)
-        neg_prob = 0.5 * uniGram_probability(self.neg_uniGram_dict, line)
+        pos_prob = 0.5 * uniGram_probability(self.pos_uniGram_dict, line, self.smoothing)
+        neg_prob = 0.5 * uniGram_probability(self.neg_uniGram_dict, line, self.smoothing)
 
         return pos_prob, neg_prob
 
@@ -66,12 +67,9 @@ def biGram_probability(uni_dictionary, bi_dictionary, line):
     return prob
 
 
-def uniGram_probability(uni_dictionary, line):
+def uniGram_probability(uni_dictionary, line, smoothing):
     l1 = 0.99999
     l2 = 0.00001
-def uniGram_probability(uni_dictionary, line, smoothing='interpolation'):
-    l1 = 0.95
-    l2 = 0.05
     words = line.split()
 
     prob = 1
@@ -153,7 +151,7 @@ def preprocess():
     return (pos_train_set, pos_test_set), (neg_train_set, neg_test_set)
 
 
-def train(pos_set, neg_set, model_type='biGram'):
+def train(pos_set, neg_set, model_type='biGram', smoothing='interpolation'):
     print('start training...')
 
     def create_dict(lines):
@@ -191,7 +189,7 @@ def train(pos_set, neg_set, model_type='biGram'):
         return uniGram_dictionary, biGram_dictionary
 
     if model_type == 'uniGram':
-        model = UniGramModel(create_dict(pos_set), create_dict(neg_set))
+        model = UniGramModel(create_dict(pos_set), create_dict(neg_set), smoothing)
     else:
         model = BiGramModel(create_dict(pos_set), create_dict(neg_set))
 
@@ -247,7 +245,7 @@ def main():
     else:
         (pos_train_set, pos_test_set), (neg_train_set, neg_test_set) = preprocess()
         # my_model = train(pos_train_set, neg_train_set, model_type="uniGram")
-        my_model = train(pos_train_set, neg_train_set, model_type='uniGram')
+        my_model = train(pos_train_set, neg_train_set, model_type='uniGram', smoothing='laplace')
         print('recall = {} precision = {} accuracy = {} F1_score = {}'.
               format(*evaluate(my_model, pos_test_set, neg_test_set)))
         print('---------------------------------------------------------')
