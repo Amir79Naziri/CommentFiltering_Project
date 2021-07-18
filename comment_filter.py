@@ -2,6 +2,7 @@ import re
 from abc import ABC, abstractmethod
 import os
 import pickle
+import random
 
 
 class Model(ABC):
@@ -46,7 +47,7 @@ def biGram_probability(uni_dictionary, bi_dictionary, line):
     if len(words) == 0:
         return 0
     try:
-        prob = uni_dictionary[line[0]] / len(uni_dictionary)
+        prob = uni_dictionary[line[0]] / sum(uni_dictionary.values())
     except KeyError:
         prob = l3 * 0.15
 
@@ -56,7 +57,7 @@ def biGram_probability(uni_dictionary, bi_dictionary, line):
         except KeyError:
             biGram_prob = 0
         try:
-            uniGram_prob = (uni_dictionary[words[i]] / len(uni_dictionary))
+            uniGram_prob = (uni_dictionary[words[i]] / sum(uni_dictionary.values()))
         except KeyError:
             uniGram_prob = 0
         interpolation_prob = l1 * biGram_prob + l2 * uniGram_prob + l3 * 0.15
@@ -68,6 +69,9 @@ def biGram_probability(uni_dictionary, bi_dictionary, line):
 def uniGram_probability(uni_dictionary, line):
     l1 = 0.99999
     l2 = 0.00001
+def uniGram_probability(uni_dictionary, line, smoothing='interpolation'):
+    l1 = 0.95
+    l2 = 0.05
     words = line.split()
 
     prob = 1
@@ -79,6 +83,20 @@ def uniGram_probability(uni_dictionary, line):
 
         interpolation_prob = l1 * uniGram_prob + l2 * 0.01
         prob *= interpolation_prob
+        if smoothing == 'interpolation':
+            try:
+                uniGram_prob = uni_dictionary[line[i]] / sum(uni_dictionary.values())
+            except KeyError:
+                uniGram_prob = 0
+            interpolation_prob = l1 * uniGram_prob + l2 * 0.5
+            prob *= interpolation_prob
+
+        elif smoothing == 'laplace':
+            try:
+                uniGram_prob = (uni_dictionary[line[i]] + 1) / (sum(uni_dictionary.values()) + len(uni_dictionary))
+            except KeyError:
+                uniGram_prob = 1 / (sum(uni_dictionary.values()) + len(uni_dictionary))
+            prob *= uniGram_prob
 
     return prob
 
@@ -120,6 +138,9 @@ def preprocess():
     pos_lines = re.sub(r'[^A-Za-z0-9\n]+', ' ', raw_pos_data).split('\n')
     neg_lines = re.sub(r'[^A-Za-z0-9\n]+', ' ', raw_neg_data).split('\n')
 
+    random.shuffle(pos_lines)
+    random.shuffle(neg_lines)
+
     pos_cutoff = int(0.98 * len(pos_lines))
     neg_cutoff = int(0.98 * len(neg_lines))
 
@@ -152,7 +173,6 @@ def train(pos_set, neg_set, model_type='biGram'):
                         biGram_dictionary[(words[i - 1], words[i])] = 1
                     else:
                         biGram_dictionary[(words[i - 1], words[i])] += 1
-
 
         if model_type == 'biGram':
             auxiliary = []
@@ -227,7 +247,7 @@ def main():
     else:
         (pos_train_set, pos_test_set), (neg_train_set, neg_test_set) = preprocess()
         # my_model = train(pos_train_set, neg_train_set, model_type="uniGram")
-        my_model = train(pos_train_set, neg_train_set)
+        my_model = train(pos_train_set, neg_train_set, model_type='uniGram')
         print('recall = {} precision = {} accuracy = {} F1_score = {}'.
               format(*evaluate(my_model, pos_test_set, neg_test_set)))
         print('---------------------------------------------------------')
