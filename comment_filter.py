@@ -79,7 +79,7 @@ def uniGram_probability(uni_dictionary, line, smoothing):
                 uniGram_prob = uni_dictionary[line[i]] / sum(uni_dictionary.values())
             except KeyError:
                 uniGram_prob = 0
-            interpolation_prob = l1 * uniGram_prob + l2 * 0.009
+            interpolation_prob = l1 * uniGram_prob + l2 * 0.0009
             prob *= interpolation_prob
 
         elif smoothing == 'laplace':
@@ -165,19 +165,14 @@ def train(pos_set, neg_set, model_type='biGram', smoothing='interpolation'):
                     else:
                         biGram_dictionary[(words[i - 1], words[i])] += 1
 
-        if model_type == 'biGram':
-            auxiliary = []
 
-            for word in uniGram_dictionary.keys():
-                if uniGram_dictionary[word] < 2:
-                    auxiliary.append(word)
-
-            for _ in range(10):
-                word = max(uniGram_dictionary, key=uniGram_dictionary.get)
+        for word in uniGram_dictionary.copy():
+            if uniGram_dictionary[word] < 2:
                 uniGram_dictionary.pop(word)
 
-            for word in auxiliary:
-                uniGram_dictionary.pop(word)
+        for _ in range(5):
+            word = max(uniGram_dictionary, key=uniGram_dictionary.get)
+            uniGram_dictionary.pop(word)
 
         return uniGram_dictionary, biGram_dictionary
 
