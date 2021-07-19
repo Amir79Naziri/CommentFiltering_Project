@@ -74,19 +74,12 @@ def uniGram_probability(uni_dictionary, line, smoothing):
 
     prob = 1
     for i in range(len(words)):
-        try:
-            uniGram_prob = uni_dictionary[line[i]] / len(uni_dictionary)
-        except KeyError:
-            uniGram_prob = 0
-
-        interpolation_prob = l1 * uniGram_prob + l2 * 0.01
-        prob *= interpolation_prob
         if smoothing == 'interpolation':
             try:
                 uniGram_prob = uni_dictionary[line[i]] / sum(uni_dictionary.values())
             except KeyError:
                 uniGram_prob = 0
-            interpolation_prob = l1 * uniGram_prob + l2 * 0.5
+            interpolation_prob = l1 * uniGram_prob + l2 * 0.009
             prob *= interpolation_prob
 
         elif smoothing == 'laplace':
@@ -136,8 +129,8 @@ def preprocess():
     pos_lines = re.sub(r'[^A-Za-z0-9\n]+', ' ', raw_pos_data).split('\n')
     neg_lines = re.sub(r'[^A-Za-z0-9\n]+', ' ', raw_neg_data).split('\n')
 
-    random.shuffle(pos_lines)
-    random.shuffle(neg_lines)
+    # random.shuffle(pos_lines)
+    # random.shuffle(neg_lines)
 
     pos_cutoff = int(0.98 * len(pos_lines))
     neg_cutoff = int(0.98 * len(neg_lines))
@@ -245,7 +238,7 @@ def main():
     else:
         (pos_train_set, pos_test_set), (neg_train_set, neg_test_set) = preprocess()
         # my_model = train(pos_train_set, neg_train_set, model_type="uniGram")
-        my_model = train(pos_train_set, neg_train_set, model_type='uniGram', smoothing='laplace')
+        my_model = train(pos_train_set, neg_train_set)
         print('recall = {} precision = {} accuracy = {} F1_score = {}'.
               format(*evaluate(my_model, pos_test_set, neg_test_set)))
         print('---------------------------------------------------------')
